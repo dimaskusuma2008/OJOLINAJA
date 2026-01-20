@@ -36,7 +36,7 @@ function displayDrivers(drivers) {
             <h3>${driver.name}</h3>
             <div class="rating">⭐ ${driver.rating}</div>
             <p>${driver.phone}</p>
-            <span class="status ${driver.status}">${driver.status === 'available' ? 'Tersedia' : 'Sibuk'}</span>
+            <span class="status available">Tersedia</span>
         `;
         driversList.appendChild(driverCard);
     });
@@ -48,7 +48,6 @@ document.getElementById('bookingForm').addEventListener('submit', async (e) => {
     
     const formData = {
         customer_name: document.getElementById('customerName').value,
-        customer_phone: document.getElementById('customerPhone').value,
         pickup: document.getElementById('pickup').value,
         destination: document.getElementById('destination').value
     };
@@ -72,6 +71,7 @@ document.getElementById('bookingForm').addEventListener('submit', async (e) => {
                 <p><strong>No. Driver:</strong> ${result.data.driver_phone}</p>
                 <p><strong>Penjemputan:</strong> ${result.data.pickup}</p>
                 <p><strong>Tujuan:</strong> ${result.data.destination}</p>
+                <p><strong>Estimasi Jarak (Cirebon):</strong> ${result.data.estimated_distance_km} km</p>
                 <p><strong>Estimasi Tarif:</strong> Rp ${result.data.estimated_fare.toLocaleString('id-ID')}</p>
                 <p><strong>Status:</strong> ${result.data.status}</p>
             `);
@@ -90,10 +90,10 @@ document.getElementById('bookingForm').addEventListener('submit', async (e) => {
 document.getElementById('trackForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     
-    const phone = document.getElementById('trackPhone').value;
+    const bookingId = document.getElementById('trackBookingId').value;
     
     try {
-        const response = await fetch(`${API_BASE}/bookings?phone=${phone}`);
+        const response = await fetch(`${API_BASE}/bookings?id=${bookingId}`);
         const result = await response.json();
         
         if (result.success) {
@@ -112,7 +112,7 @@ function displayBookings(bookings) {
     bookingResults.innerHTML = '';
     
     if (bookings.length === 0) {
-        bookingResults.innerHTML = '<p>Tidak ada booking ditemukan untuk nomor telepon ini.</p>';
+        bookingResults.innerHTML = '<p>Tidak ada booking ditemukan untuk ID tersebut.</p>';
         return;
     }
     
@@ -133,6 +133,7 @@ function displayBookings(bookings) {
                 <p><strong>No. Driver:</strong> ${booking.driver_phone}</p>
                 <p><strong>Penjemputan:</strong> ${booking.pickup}</p>
                 <p><strong>Tujuan:</strong> ${booking.destination}</p>
+                <p><strong>Jarak Perkiraan:</strong> ${booking.estimated_distance_km} km (Dalam Kota Cirebon)</p>
                 <p><strong>Tarif:</strong> Rp ${booking.estimated_fare.toLocaleString('id-ID')}</p>
                 <p><strong>Status:</strong> <span class="booking-status status ${booking.status}">${statusText[booking.status] || booking.status}</span></p>
             </div>
@@ -160,8 +161,8 @@ async function cancelBooking(bookingId) {
         
         if (result.success) {
             showModal('Berhasil', '<p>Booking berhasil dibatalkan.</p>');
-            const phone = document.getElementById('trackPhone').value;
-            if (phone) {
+            const bookingIdInput = document.getElementById('trackBookingId').value;
+            if (bookingIdInput) {
                 document.getElementById('trackForm').dispatchEvent(new Event('submit'));
             }
             loadDrivers();
@@ -189,8 +190,8 @@ async function completeBooking(bookingId) {
         
         if (result.success) {
             showModal('Berhasil', '<p>Booking ditandai sebagai selesai.</p>');
-            const phone = document.getElementById('trackPhone').value;
-            if (phone) {
+            const bookingIdInput = document.getElementById('trackBookingId').value;
+            if (bookingIdInput) {
                 document.getElementById('trackForm').dispatchEvent(new Event('submit'));
             }
             loadDrivers();
