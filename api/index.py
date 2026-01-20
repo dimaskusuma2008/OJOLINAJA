@@ -15,9 +15,12 @@ drivers = [
 bookings = []
 booking_id_counter = 1
 
-# Static files akan di-handle oleh Vercel secara otomatis
+# Catatan:
+# Di Vercel, semua request ke /api/... akan di-route ke file ini (lihat vercel.json).
+# Supaya endpoint cocok dengan frontend (yang memanggil /api/drivers, /api/book, dst),
+# maka route Flask TIDAK pakai prefix /api lagi, cukup /drivers, /book, /bookings, dll.
 
-@app.route('/api/drivers', methods=['GET'])
+@app.route('/drivers', methods=['GET'])
 def get_drivers():
     """Mendapatkan daftar driver yang tersedia"""
     available_drivers = [d for d in drivers if d['status'] == 'available']
@@ -26,7 +29,7 @@ def get_drivers():
         "data": available_drivers
     })
 
-@app.route('/api/book', methods=['POST'])
+@app.route('/book', methods=['POST'])
 def book_ride():
     """Membuat booking ojek"""
     global booking_id_counter
@@ -80,7 +83,7 @@ def book_ride():
         "data": booking
     })
 
-@app.route('/api/bookings', methods=['GET'])
+@app.route('/bookings', methods=['GET'])
 def get_bookings():
     """Mendapatkan daftar booking"""
     phone = request.args.get('phone')
@@ -97,7 +100,7 @@ def get_bookings():
         "data": bookings
     })
 
-@app.route('/api/bookings/<int:booking_id>/cancel', methods=['POST'])
+@app.route('/bookings/<int:booking_id>/cancel', methods=['POST'])
 def cancel_booking(booking_id):
     """Membatalkan booking"""
     booking = next((b for b in bookings if b['id'] == booking_id), None)
@@ -126,7 +129,7 @@ def cancel_booking(booking_id):
         "data": booking
     })
 
-@app.route('/api/bookings/<int:booking_id>/complete', methods=['POST'])
+@app.route('/bookings/<int:booking_id>/complete', methods=['POST'])
 def complete_booking(booking_id):
     """Menyelesaikan booking"""
     booking = next((b for b in bookings if b['id'] == booking_id), None)
