@@ -9,16 +9,16 @@ app = Flask(__name__)
 # Fokus: area dalam kota Cirebon, biker dan order dianggap "unlimited"
 
 BASE_BIKERS = [
-    "Biker Gatot",
-    "Biker Ujang",
-    "Biker Dede",
-    "Biker Yanto",
-    "Biker Sinta",
-    "Biker Rina",
-    "Biker Dadan",
-    "Biker Jaya",
-    "Biker Wati",
-    "Biker Bowo",
+    "Biker Cirebon Asep",
+    "Biker Cirebon Ujang",
+    "Biker Cirebon Dede",
+    "Biker Cirebon Yanto",
+    "Biker Cirebon Sinta",
+    "Biker Cirebon Rina",
+    "Biker Cirebon Dadan",
+    "Biker Cirebon Jaya",
+    "Biker Cirebon Wati",
+    "Biker Cirebon Bowo",
 ]
 
 bookings = []
