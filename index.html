@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ojek Online - Pesan Ojek Sekarang</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <h1>🏍️ OjekOnline</h1>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="#home">Beranda</a></li>
+                <li><a href="#book">Pesan</a></li>
+                <li><a href="#track">Lacak</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <section id="home" class="hero">
+        <div class="container">
+            <h2>Pesan Ojek Online dengan Mudah</h2>
+            <p>Driver berpengalaman siap mengantarkan Anda ke tujuan</p>
+            <a href="#book" class="btn btn-primary">Pesan Sekarang</a>
+        </div>
+    </section>
+
+    <section id="book" class="booking-section">
+        <div class="container">
+            <h2>Pesan Ojek</h2>
+            <div class="booking-form">
+                <form id="bookingForm">
+                    <div class="form-group">
+                        <label for="customerName">Nama Anda</label>
+                        <input type="text" id="customerName" name="customerName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="customerPhone">No. Telepon</label>
+                        <input type="tel" id="customerPhone" name="customerPhone" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="pickup">Lokasi Penjemputan</label>
+                        <input type="text" id="pickup" name="pickup" placeholder="Contoh: Jl. Sudirman No. 1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="destination">Tujuan</label>
+                        <input type="text" id="destination" name="destination" placeholder="Contoh: Mall Grand Indonesia" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Pesan Ojek</button>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <section id="track" class="tracking-section">
+        <div class="container">
+            <h2>Lacak Pesanan</h2>
+            <div class="track-form">
+                <form id="trackForm">
+                    <div class="form-group">
+                        <label for="trackPhone">Masukkan No. Telepon</label>
+                        <input type="tel" id="trackPhone" name="trackPhone" placeholder="No. telepon yang digunakan saat booking" required>
+                    </div>
+                    <button type="submit" class="btn btn-secondary">Cari Pesanan</button>
+                </form>
+            </div>
+            <div id="bookingResults" class="booking-results"></div>
+        </div>
+    </section>
+
+    <section class="drivers-section">
+        <div class="container">
+            <h2>Driver Tersedia</h2>
+            <div id="driversList" class="drivers-grid"></div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 OjekOnline. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <div id="modalBody"></div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
