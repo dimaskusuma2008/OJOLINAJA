@@ -35,19 +35,15 @@
                 <form id="bookingForm">
                     <div class="form-group">
                         <label for="customerName">Nama Anda</label>
-                        <input type="text" id="customerName" name="customerName" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="customerPhone">No. Telepon</label>
-                        <input type="tel" id="customerPhone" name="customerPhone" required>
+                        <ia nput type="text" id="customerName" name="customerName" required>
                     </div>
                     <div class="form-group">
                         <label for="pickup">Lokasi Penjemputan</label>
-                        <input type="text" id="pickup" name="pickup" placeholder="Contoh: Jl. Sudirman No. 1" required>
+                        <input type="text" id="pickup" name="pickup" placeholder="Contoh: Jl. Cipto Mangunkusumo" required>
                     </div>
                     <div class="form-group">
                         <label for="destination">Tujuan</label>
-                        <input type="text" id="destination" name="destination" placeholder="Contoh: Mall Grand Indonesia" required>
+                        <input type="text" id="destination" name="destination" placeholder="Contoh: Grage Mall Cirebon" required>
                     </div>
                     <button type="submit" class="btn btn-primary">Pesan Ojek</button>
                 </form>
@@ -61,8 +57,8 @@
             <div class="track-form">
                 <form id="trackForm">
                     <div class="form-group">
-                        <label for="trackPhone">Masukkan No. Telepon</label>
-                        <input type="tel" id="trackPhone" name="trackPhone" placeholder="No. telepon yang digunakan saat booking" required>
+                        <label for="trackBookingId">Masukkan ID Booking</label>
+                        <input type="number" id="trackBookingId" name="trackBookingId" placeholder="ID booking dari hasil pemesanan" required>
                     </div>
                     <button type="submit" class="btn btn-secondary">Cari Pesanan</button>
                 </form>
