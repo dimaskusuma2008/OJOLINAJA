@@ -1,17 +1,24 @@
 from flask import Flask, request, jsonify, send_from_directory
 from datetime import datetime
 import os
+import random
 
 app = Flask(__name__)
 
 # In-memory database (untuk demo, bisa diganti dengan database sesungguhnya)
-drivers = [
-    {"id": 1, "name": "Budi Santoso", "phone": "081234567890", "status": "available", "rating": 4.8,
-     "location": {"lat": -6.2088, "lng": 106.8456}},
-    {"id": 2, "name": "Ahmad Rizki", "phone": "081234567891", "status": "available", "rating": 4.9,
-     "location": {"lat": -6.2146, "lng": 106.8451}},
-    {"id": 3, "name": "Siti Nurhaliza", "phone": "081234567892", "status": "busy", "rating": 4.7,
-     "location": {"lat": -6.2000, "lng": 106.8500}},
+# Fokus: area dalam kota Cirebon, biker dan order dianggap "unlimited"
+
+BASE_BIKERS = [
+    "Biker Gatot",
+    "Biker Ujang",
+    "Biker Dede",
+    "Biker Yanto",
+    "Biker Sinta",
+    "Biker Rina",
+    "Biker Dadan",
+    "Biker Jaya",
+    "Biker Wati",
+    "Biker Bowo",
 ]
 
 bookings = []
@@ -49,12 +56,20 @@ def static_files(path):
 
 @app.route("/api/drivers", methods=["GET"])
 def get_drivers():
-    """Mendapatkan daftar driver yang tersedia"""
-    available_drivers = [d for d in drivers if d["status"] == "available"]
-    return jsonify({
-        "success": True,
-        "data": available_drivers
-    })
+    """Mendapatkan daftar biker yang tersedia (secara virtual, unlimited)."""
+    drivers = []
+    # Generate banyak biker virtual agar kelihatan ramai (misal 30)
+    for i in range(30):
+        base_name = BASE_BIKERS[i % len(BASE_BIKERS)]
+        drivers.append({
+            "id": i + 1,
+            "name": f"{base_name} #{i + 1}",
+            "phone": f"08{random.randint(1000000000, 9999999999)}",
+            "status": "available",
+            "rating": round(random.uniform(4.5, 5.0), 1),
+        })
+
+    return jsonify({"success": True, "data": drivers})
 
 
 @app.route("/api/book", methods=["POST"])
@@ -64,7 +79,8 @@ def book_ride():
 
     data = request.get_json() or {}
 
-    required_fields = ["pickup", "destination", "customer_name", "customer_phone"]
+    # Tidak perlu nomor HP customer
+    required_fields = ["pickup", "destination", "customer_name"]
     for field in required_fields:
         if field not in data:
             return jsonify({
@@ -72,35 +88,30 @@ def book_ride():
                 "message": f"Field {field} is required"
             }), 400
 
-    # Cari driver yang tersedia
-    available_driver = next((d for d in drivers if d["status"] == "available"), None)
+    # Pilih biker secara random dari daftar virtual (unlimited)
+    biker_name = random.choice(BASE_BIKERS)
+    driver_phone = f"08{random.randint(1000000000, 9999999999)}"
 
-    if not available_driver:
-        return jsonify({
-            "success": False,
-            "message": "Tidak ada driver yang tersedia saat ini"
-        }), 400
+    distance_km = estimate_distance_km_cirebon(data["pickup"], data["destination"])
+    estimated_fare = calculate_fare(distance_km)
 
     # Buat booking
     booking = {
         "id": booking_id_counter,
-        "driver_id": available_driver["id"],
-        "driver_name": available_driver["name"],
-        "driver_phone": available_driver["phone"],
+        "driver_name": biker_name,
+        "driver_phone": driver_phone,
         "pickup": data["pickup"],
         "destination": data["destination"],
         "customer_name": data["customer_name"],
-        "customer_phone": data["customer_phone"],
         "status": "pending",
         "created_at": datetime.now().isoformat(),
-        "estimated_fare": calculate_fare(data["pickup"], data["destination"])
+        "estimated_fare": estimated_fare,
+        "estimated_distance_km": distance_km,
+        "city": "Cirebon"
     }
 
     bookings.append(booking)
     booking_id_counter += 1
-
-    # Update status driver menjadi busy
-    available_driver["status"] = "busy"
 
     return jsonify({
         "success": True,
@@ -110,15 +121,12 @@ def book_ride():
 
 @app.route("/api/bookings", methods=["GET"])
 def get_bookings():
-    """Mendapatkan daftar booking (bisa difilter by phone)"""
-    phone = request.args.get("phone")
+    """Mendapatkan daftar booking (bisa difilter by ID booking)."""
+    booking_id = request.args.get("id", type=int)
 
-    if phone:
-        user_bookings = [b for b in bookings if b["customer_phone"] == phone]
-        return jsonify({
-            "success": True,
-            "data": user_bookings
-        })
+    if booking_id is not None:
+        user_bookings = [b for b in bookings if b["id"] == booking_id]
+        return jsonify({"success": True, "data": user_bookings})
 
     return jsonify({
         "success": True,
@@ -145,11 +153,6 @@ def cancel_booking(booking_id):
 
     booking["status"] = "cancelled"
 
-    # Kembalikan driver ke status available
-    driver = next((d for d in drivers if d["id"] == booking["driver_id"]), None)
-    if driver:
-        driver["status"] = "available"
-
     return jsonify({
         "success": True,
         "data": booking
@@ -170,23 +173,32 @@ def complete_booking(booking_id):
     booking["status"] = "completed"
     booking["completed_at"] = datetime.now().isoformat()
 
-    # Kembalikan driver ke status available
-    driver = next((d for d in drivers if d["id"] == booking["driver_id"]), None)
-    if driver:
-        driver["status"] = "available"
-
     return jsonify({
         "success": True,
         "data": booking
     })
 
 
-def calculate_fare(pickup, destination):
-    """Menghitung estimasi tarif (simplified)"""
-    # Untuk demo, menggunakan tarif tetap
-    base_fare = 10000
-    distance_fare = 2000  # per km (simulated)
-    return base_fare + (distance_fare * 5)  # Assume 5km distance
+def estimate_distance_km_cirebon(pickup: str, destination: str) -> int:
+    """
+    Estimasi jarak dalam kota Cirebon berdasarkan teks lokasi.
+    Menghasilkan jarak yang konsisten untuk kombinasi pickup + destination,
+    di rentang 2–14 km (jarak wajar dalam kota).
+    """
+    key = (pickup + destination).lower()
+    # Simple deterministic "hash" supaya setiap kombinasi selalu sama
+    total = sum(ord(c) for c in key)
+    return 2 + (total % 13)  # 2..14 km
+
+
+def calculate_fare(distance_km: int) -> int:
+    """
+    Menghitung estimasi tarif berdasarkan jarak dalam kota Cirebon.
+    Contoh skema: 5.000 tarif dasar + 3.000/km.
+    """
+    base_fare = 5000
+    per_km = 3000
+    return base_fare + int(per_km * max(distance_km, 1))
 
 
 if __name__ == "__main__":
