@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify, send_from_directory
 from datetime import datetime
 import os
 import random
+import requests
 
 app = Flask(__name__)
 
@@ -9,16 +10,16 @@ app = Flask(__name__)
 # Fokus: area dalam kota Cirebon, biker dan order dianggap "unlimited"
 
 BASE_BIKERS = [
-    "Alex",
-    "Ujang",
-    "Dede",
-    "Yanto",
-    "Sinta",
-    "Rina",
-    "Dadan",
-    "Jaya",
-    "Wati",
-    "Bowo",
+    "Biker Cirebon Asep",
+    "Biker Cirebon Ujang",
+    "Biker Cirebon Dede",
+    "Biker Cirebon Yanto",
+    "Biker Cirebon Sinta",
+    "Biker Cirebon Rina",
+    "Biker Cirebon Dadan",
+    "Biker Cirebon Jaya",
+    "Biker Cirebon Wati",
+    "Biker Cirebon Bowo",
 ]
 
 bookings = []
@@ -92,7 +93,7 @@ def book_ride():
     biker_name = random.choice(BASE_BIKERS)
     driver_phone = f"08{random.randint(1000000000, 9999999999)}"
 
-    distance_km = estimate_distance_km_cirebon(data["pickup"], data["destination"])
+    distance_km = get_realistic_distance_km_cirebon(data["pickup"], data["destination"])
     estimated_fare = calculate_fare(distance_km)
 
     # Buat booking
@@ -199,6 +200,79 @@ def calculate_fare(distance_km: int) -> int:
     base_fare = 5000
     per_km = 3000
     return base_fare + int(per_km * max(distance_km, 1))
+
+
+def geocode_address_cirebon(address: str):
+    """
+    Geocoding alamat ke koordinat (lat, lon) menggunakan Nominatim OpenStreetMap,
+    dibatasi ke area Cirebon, Indonesia.
+    """
+    if not address:
+        return None
+
+    params = {
+        "q": f"{address}, Cirebon, Indonesia",
+        "format": "json",
+        "limit": 1,
+    }
+    headers = {
+        "User-Agent": "ojek-cirebon-demo/1.0 (contact: example@example.com)"
+    }
+
+    try:
+        resp = requests.get("https://nominatim.openstreetmap.org/search", params=params, headers=headers, timeout=5)
+        resp.raise_for_status()
+        data = resp.json()
+        if not data:
+            return None
+        lat = float(data[0]["lat"])
+        lon = float(data[0]["lon"])
+        return lat, lon
+    except Exception:
+        return None
+
+
+def osrm_distance_km(origin, dest) -> float | None:
+    """
+    Hitung jarak rute motor (driving) menggunakan OSRM public server.
+    origin/dest: (lat, lon)
+    """
+    if origin is None or dest is None:
+        return None
+
+    (olat, olon) = origin
+    (dlat, dlon) = dest
+
+    url = f"https://router.project-osrm.org/route/v1/driving/{olon},{olat};{dlon},{dlat}"
+    params = {"overview": "false", "alternatives": "false"}
+
+    try:
+        resp = requests.get(url, params=params, timeout=5)
+        resp.raise_for_status()
+        data = resp.json()
+        routes = data.get("routes")
+        if not routes:
+            return None
+        distance_m = routes[0].get("distance")
+        if distance_m is None:
+            return None
+        return round(distance_m / 1000.0, 1)
+    except Exception:
+        return None
+
+
+def get_realistic_distance_km_cirebon(pickup: str, destination: str) -> int:
+    """
+    Coba hitung jarak realistis berdasarkan rute jalan dalam kota Cirebon.
+    Jika API geocoding / routing gagal, fallback ke estimasi lokal.
+    """
+    origin = geocode_address_cirebon(pickup)
+    dest = geocode_address_cirebon(destination)
+    distance = osrm_distance_km(origin, dest)
+    if distance is None:
+        return estimate_distance_km_cirebon(pickup, destination)
+    # minimal 1 km, dibulatkan ke atas ke integer km
+    return max(int(round(distance)), 1)
 
 
 if __name__ == "__main__":
