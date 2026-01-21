@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify, send_from_directory
 from datetime import datetime
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Dict
 import os
 import random
 import requests
@@ -29,9 +29,26 @@ booking_id_counter = 1
 # Network tuning + cache kecil supaya respons tetap cepat di serverless
 HTTP_TIMEOUT_SEC = 1.8
 _session = requests.Session()
-_geocode_cache: dict[str, Optional[Tuple[float, float]]] = {}
-_distance_cache: dict[str, int] = {}
+# NOTE: Jangan pakai `dict[str, ...]` agar kompatibel dengan Python < 3.9 (Vercel bisa beda runtime)
+_geocode_cache: Dict[str, Optional[Tuple[float, float]]] = {}
+_distance_cache: Dict[str, int] = {}
 _CACHE_MAX = 200
+
+# Base directory untuk serve file statis secara konsisten di Vercel
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    """
+    Hindari FUNCTION_INVOCATION_FAILED tanpa response.
+    Kembalikan JSON error yang bisa dibaca frontend.
+    """
+    return jsonify({
+        "success": False,
+        "message": "INTERNAL_SERVER_ERROR",
+        "detail": str(e),
+    }), 500
 
 
 # =========================
@@ -45,7 +62,7 @@ def index():
     Vercel akan mengarahkan semua request ke app.py (lihat vercel.json),
     jadi di sini kita handle halaman utama.
     """
-    return send_from_directory(".", "index.html")
+    return send_from_directory(BASE_DIR, "index.html")
 
 
 @app.route("/<path:path>", methods=["GET"])
@@ -53,10 +70,13 @@ def static_files(path):
     """
     Serve file statis (CSS, JS, gambar).
     """
-    if os.path.exists(path):
-        return send_from_directory(".", path)
+    # Normalize path agar tidak tergantung CWD
+    safe_path = os.path.normpath(path).lstrip("\\/")  # basic safety
+    full_path = os.path.join(BASE_DIR, safe_path)
+    if os.path.exists(full_path):
+        return send_from_directory(BASE_DIR, safe_path)
     # fallback ke index untuk path lain (opsional)
-    return send_from_directory(".", "index.html")
+    return send_from_directory(BASE_DIR, "index.html")
 
 
 # =========================
