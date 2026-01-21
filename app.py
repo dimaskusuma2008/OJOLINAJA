@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify, send_from_directory
 from datetime import datetime
+from typing import Optional, Tuple
 import os
 import random
 import requests
@@ -10,16 +11,16 @@ app = Flask(__name__)
 # Fokus: area dalam kota Cirebon, biker dan order dianggap "unlimited"
 
 BASE_BIKERS = [
-    "Biker Cirebon Asep",
-    "Biker Cirebon Ujang",
-    "Biker Cirebon Dede",
-    "Biker Cirebon Yanto",
-    "Biker Cirebon Sinta",
-    "Biker Cirebon Rina",
-    "Biker Cirebon Dadan",
-    "Biker Cirebon Jaya",
-    "Biker Cirebon Wati",
-    "Biker Cirebon Bowo",
+    "Bambang",
+    "Ujang",
+    "Dede",
+    "Yanto",
+    "Sinta",
+    "Rina",
+    "Budhi",
+    "Jaya",
+    "Wati",
+    "owo",
 ]
 
 bookings = []
@@ -232,7 +233,7 @@ def geocode_address_cirebon(address: str):
         return None
 
 
-def osrm_distance_km(origin, dest) -> float | None:
+def osrm_distance_km(origin: Optional[Tuple[float, float]], dest: Optional[Tuple[float, float]]) -> Optional[float]:
     """
     Hitung jarak rute motor (driving) menggunakan OSRM public server.
     origin/dest: (lat, lon)
