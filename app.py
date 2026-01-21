@@ -26,6 +26,13 @@ BASE_BIKERS = [
 bookings = []
 booking_id_counter = 1
 
+# Network tuning + cache kecil supaya respons tetap cepat di serverless
+HTTP_TIMEOUT_SEC = 1.8
+_session = requests.Session()
+_geocode_cache: dict[str, Optional[Tuple[float, float]]] = {}
+_distance_cache: dict[str, int] = {}
+_CACHE_MAX = 200
+
 
 # =========================
 # ROUTE HALAMAN UTAMA
@@ -211,6 +218,10 @@ def geocode_address_cirebon(address: str):
     if not address:
         return None
 
+    cache_key = address.strip().lower()
+    if cache_key in _geocode_cache:
+        return _geocode_cache[cache_key]
+
     params = {
         "q": f"{address}, Cirebon, Indonesia",
         "format": "json",
@@ -221,15 +232,25 @@ def geocode_address_cirebon(address: str):
     }
 
     try:
-        resp = requests.get("https://nominatim.openstreetmap.org/search", params=params, headers=headers, timeout=5)
+        resp = _session.get(
+            "https://nominatim.openstreetmap.org/search",
+            params=params,
+            headers=headers,
+            timeout=HTTP_TIMEOUT_SEC,
+        )
         resp.raise_for_status()
         data = resp.json()
         if not data:
+            _geocode_cache[cache_key] = None
             return None
         lat = float(data[0]["lat"])
         lon = float(data[0]["lon"])
-        return lat, lon
+        result = (lat, lon)
+        _geocode_cache[cache_key] = result
+        _trim_caches()
+        return result
     except Exception:
+        _geocode_cache[cache_key] = None
         return None
 
 
@@ -248,7 +269,7 @@ def osrm_distance_km(origin: Optional[Tuple[float, float]], dest: Optional[Tuple
     params = {"overview": "false", "alternatives": "false"}
 
     try:
-        resp = requests.get(url, params=params, timeout=5)
+        resp = _session.get(url, params=params, timeout=HTTP_TIMEOUT_SEC)
         resp.raise_for_status()
         data = resp.json()
         routes = data.get("routes")
@@ -267,13 +288,33 @@ def get_realistic_distance_km_cirebon(pickup: str, destination: str) -> int:
     Coba hitung jarak realistis berdasarkan rute jalan dalam kota Cirebon.
     Jika API geocoding / routing gagal, fallback ke estimasi lokal.
     """
+    cache_key = (pickup.strip() + "||" + destination.strip()).lower()
+    if cache_key in _distance_cache:
+        return _distance_cache[cache_key]
+
     origin = geocode_address_cirebon(pickup)
     dest = geocode_address_cirebon(destination)
     distance = osrm_distance_km(origin, dest)
     if distance is None:
-        return estimate_distance_km_cirebon(pickup, destination)
+        fallback = estimate_distance_km_cirebon(pickup, destination)
+        _distance_cache[cache_key] = fallback
+        _trim_caches()
+        return fallback
     # minimal 1 km, dibulatkan ke atas ke integer km
-    return max(int(round(distance)), 1)
+    result = max(int(round(distance)), 1)
+    _distance_cache[cache_key] = result
+    _trim_caches()
+    return result
+
+
+def _trim_caches():
+    # simple FIFO-ish trim (hapus item lama secara arbitrary)
+    if len(_geocode_cache) > _CACHE_MAX:
+        for k in list(_geocode_cache.keys())[: len(_geocode_cache) - _CACHE_MAX]:
+            _geocode_cache.pop(k, None)
+    if len(_distance_cache) > _CACHE_MAX:
+        for k in list(_distance_cache.keys())[: len(_distance_cache) - _CACHE_MAX]:
+            _distance_cache.pop(k, None)
 
 
 if __name__ == "__main__":
