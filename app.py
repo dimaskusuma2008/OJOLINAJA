@@ -1,9 +1,7 @@
 from flask import Flask, request, jsonify, send_from_directory
 from datetime import datetime
-from typing import Optional, Tuple, Dict
 import os
 import random
-import requests
 
 app = Flask(__name__)
 
@@ -11,44 +9,20 @@ app = Flask(__name__)
 # Fokus: area dalam kota Cirebon, biker dan order dianggap "unlimited"
 
 BASE_BIKERS = [
-    "Bambang",
+    "Alex",
     "Ujang",
     "Dede",
     "Yanto",
     "Sinta",
     "Rina",
-    "Budhi",
+    "Dadan",
     "Jaya",
     "Wati",
-    "owo",
+    "Bowo",
 ]
 
 bookings = []
 booking_id_counter = 1
-
-# Network tuning + cache kecil supaya respons tetap cepat di serverless
-HTTP_TIMEOUT_SEC = 1.8
-_session = requests.Session()
-# NOTE: Jangan pakai `dict[str, ...]` agar kompatibel dengan Python < 3.9 (Vercel bisa beda runtime)
-_geocode_cache: Dict[str, Optional[Tuple[float, float]]] = {}
-_distance_cache: Dict[str, int] = {}
-_CACHE_MAX = 200
-
-# Base directory untuk serve file statis secara konsisten di Vercel
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-
-@app.errorhandler(Exception)
-def handle_exception(e):
-    """
-    Hindari FUNCTION_INVOCATION_FAILED tanpa response.
-    Kembalikan JSON error yang bisa dibaca frontend.
-    """
-    return jsonify({
-        "success": False,
-        "message": "INTERNAL_SERVER_ERROR",
-        "detail": str(e),
-    }), 500
 
 
 # =========================
@@ -62,7 +36,7 @@ def index():
     Vercel akan mengarahkan semua request ke app.py (lihat vercel.json),
     jadi di sini kita handle halaman utama.
     """
-    return send_from_directory(BASE_DIR, "index.html")
+    return send_from_directory(".", "index.html")
 
 
 @app.route("/<path:path>", methods=["GET"])
@@ -70,13 +44,10 @@ def static_files(path):
     """
     Serve file statis (CSS, JS, gambar).
     """
-    # Normalize path agar tidak tergantung CWD
-    safe_path = os.path.normpath(path).lstrip("\\/")  # basic safety
-    full_path = os.path.join(BASE_DIR, safe_path)
-    if os.path.exists(full_path):
-        return send_from_directory(BASE_DIR, safe_path)
+    if os.path.exists(path):
+        return send_from_directory(".", path)
     # fallback ke index untuk path lain (opsional)
-    return send_from_directory(BASE_DIR, "index.html")
+    return send_from_directory(".", "index.html")
 
 
 # =========================
@@ -121,7 +92,7 @@ def book_ride():
     biker_name = random.choice(BASE_BIKERS)
     driver_phone = f"08{random.randint(1000000000, 9999999999)}"
 
-    distance_km = get_realistic_distance_km_cirebon(data["pickup"], data["destination"])
+    distance_km = estimate_distance_km_cirebon(data["pickup"], data["destination"])
     estimated_fare = calculate_fare(distance_km)
 
     # Buat booking
@@ -230,113 +201,5 @@ def calculate_fare(distance_km: int) -> int:
     return base_fare + int(per_km * max(distance_km, 1))
 
 
-def geocode_address_cirebon(address: str):
-    """
-    Geocoding alamat ke koordinat (lat, lon) menggunakan Nominatim OpenStreetMap,
-    dibatasi ke area Cirebon, Indonesia.
-    """
-    if not address:
-        return None
-
-    cache_key = address.strip().lower()
-    if cache_key in _geocode_cache:
-        return _geocode_cache[cache_key]
-
-    params = {
-        "q": f"{address}, Cirebon, Indonesia",
-        "format": "json",
-        "limit": 1,
-    }
-    headers = {
-        "User-Agent": "ojek-cirebon-demo/1.0 (contact: example@example.com)"
-    }
-
-    try:
-        resp = _session.get(
-            "https://nominatim.openstreetmap.org/search",
-            params=params,
-            headers=headers,
-            timeout=HTTP_TIMEOUT_SEC,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        if not data:
-            _geocode_cache[cache_key] = None
-            return None
-        lat = float(data[0]["lat"])
-        lon = float(data[0]["lon"])
-        result = (lat, lon)
-        _geocode_cache[cache_key] = result
-        _trim_caches()
-        return result
-    except Exception:
-        _geocode_cache[cache_key] = None
-        return None
-
-
-def osrm_distance_km(origin: Optional[Tuple[float, float]], dest: Optional[Tuple[float, float]]) -> Optional[float]:
-    """
-    Hitung jarak rute motor (driving) menggunakan OSRM public server.
-    origin/dest: (lat, lon)
-    """
-    if origin is None or dest is None:
-        return None
-
-    (olat, olon) = origin
-    (dlat, dlon) = dest
-
-    url = f"https://router.project-osrm.org/route/v1/driving/{olon},{olat};{dlon},{dlat}"
-    params = {"overview": "false", "alternatives": "false"}
-
-    try:
-        resp = _session.get(url, params=params, timeout=HTTP_TIMEOUT_SEC)
-        resp.raise_for_status()
-        data = resp.json()
-        routes = data.get("routes")
-        if not routes:
-            return None
-        distance_m = routes[0].get("distance")
-        if distance_m is None:
-            return None
-        return round(distance_m / 1000.0, 1)
-    except Exception:
-        return None
-
-
-def get_realistic_distance_km_cirebon(pickup: str, destination: str) -> int:
-    """
-    Coba hitung jarak realistis berdasarkan rute jalan dalam kota Cirebon.
-    Jika API geocoding / routing gagal, fallback ke estimasi lokal.
-    """
-    cache_key = (pickup.strip() + "||" + destination.strip()).lower()
-    if cache_key in _distance_cache:
-        return _distance_cache[cache_key]
-
-    origin = geocode_address_cirebon(pickup)
-    dest = geocode_address_cirebon(destination)
-    distance = osrm_distance_km(origin, dest)
-    if distance is None:
-        fallback = estimate_distance_km_cirebon(pickup, destination)
-        _distance_cache[cache_key] = fallback
-        _trim_caches()
-        return fallback
-    # minimal 1 km, dibulatkan ke atas ke integer km
-    result = max(int(round(distance)), 1)
-    _distance_cache[cache_key] = result
-    _trim_caches()
-    return result
-
-
-def _trim_caches():
-    # simple FIFO-ish trim (hapus item lama secara arbitrary)
-    if len(_geocode_cache) > _CACHE_MAX:
-        for k in list(_geocode_cache.keys())[: len(_geocode_cache) - _CACHE_MAX]:
-            _geocode_cache.pop(k, None)
-    if len(_distance_cache) > _CACHE_MAX:
-        for k in list(_distance_cache.keys())[: len(_distance_cache) - _CACHE_MAX]:
-            _distance_cache.pop(k, None)
-
-
 if __name__ == "__main__":
     app.run(debug=True)
-
